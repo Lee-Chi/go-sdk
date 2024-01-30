@@ -8,17 +8,16 @@ import (
 )
 
 var (
-	skip      int    = 0
+	skip      int    = 2
 	ignoreDir string = ""
 )
 
-func Init(skipCaller int) {
+func Init() {
 	ignoreDir = getCurrentDir()
-	skip = skipCaller
 }
 
 func getCurrentDir() string {
-	_, file, _, ok := runtime.Caller(2)
+	_, file, _, ok := runtime.Caller(skip)
 	if !ok {
 		return ""
 	}
