@@ -162,6 +162,10 @@ func (c *Collection) Find(ctx context.Context, results interface{}) error {
 	return cursor.All(ctx, results)
 }
 
+func (c *Collection) Count(ctx context.Context) (int64, error) {
+	return c.Collection.CountDocuments(ctx, c.filter)
+}
+
 func (c *Collection) Aggregate(ctx context.Context, pipeline interface{}, results interface{}) error {
 	cursor, err := c.Collection.Aggregate(ctx, pipeline)
 	if err != nil {
