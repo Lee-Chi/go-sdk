@@ -15,6 +15,11 @@ type Database struct {
 
 type Collection struct {
 	*mongo.Collection
+
+	filter F
+	sort   S
+	skip   int64
+	limit  int64
 }
 
 func NewDatabase(ctx context.Context, uri string, name string) (*Database, error) {
@@ -39,15 +44,44 @@ func (db *Database) Close(ctx context.Context) error {
 func (db *Database) Collection(name string) *Collection {
 	return &Collection{
 		Collection: db.Database.Collection(name),
+
+		filter: F{},
+		sort:   S{},
+		skip:   -1,
+		limit:  -1,
 	}
 }
 
-func (c *Collection) Insert(ctx context.Context, document interface{}) error {
-	if _, err := c.Collection.InsertOne(ctx, document); err != nil {
-		return err
+func (c *Collection) Sort(sorts ...S) *Collection {
+	if len(sorts) == 0 {
+		return c
 	}
 
-	return nil
+	for _, sort := range sorts {
+		c.sort = append(c.sort, sort...)
+	}
+
+	return c
+}
+
+func (c *Collection) Skip(skip int64) *Collection {
+	c.skip = skip
+	return c
+}
+
+func (c *Collection) Limit(limit int64) *Collection {
+	c.limit = limit
+	return c
+}
+
+func (c *Collection) Where(filters ...F) *Collection {
+	if len(filters) == 0 {
+		return c
+	}
+
+	c.filter = F{bson.E{Key: "$and", Value: filters}}
+
+	return c
 }
 
 func (c *Collection) InsertOne(ctx context.Context, document interface{}) (primitive.ObjectID, error) {
@@ -67,72 +101,48 @@ func (c *Collection) InsertMany(ctx context.Context, documents []interface{}) er
 	return nil
 }
 
-func (c *Collection) UpdateOne(ctx context.Context, filter F, update interface{}) error {
-	if _, err := c.Collection.UpdateOne(ctx, filter, bson.M{"$set": update}); err != nil {
+func (c *Collection) UpdateOne(ctx context.Context, update interface{}) error {
+	if _, err := c.Collection.UpdateOne(ctx, c.filter, bson.M{"$set": update}); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *Collection) UpdateByID(ctx context.Context, id primitive.ObjectID, update interface{}) error {
-	if _, err := c.Collection.UpdateByID(ctx, id, bson.M{"$set": update}); err != nil {
+func (c *Collection) UpdateMany(ctx context.Context, update interface{}) error {
+	if _, err := c.Collection.UpdateMany(ctx, c.filter, bson.M{"$set": update}); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *Collection) UpdateMany(ctx context.Context, filter F, update interface{}) error {
-	if _, err := c.Collection.UpdateMany(ctx, filter, bson.M{"$set": update}); err != nil {
+func (c *Collection) DeleteOne(ctx context.Context) error {
+	if _, err := c.Collection.DeleteOne(ctx, c.filter); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *Collection) DeleteOne(ctx context.Context, filter F) error {
-	if _, err := c.Collection.DeleteOne(ctx, filter); err != nil {
+func (c *Collection) DeleteMany(ctx context.Context) error {
+	if _, err := c.Collection.DeleteMany(ctx, c.filter); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *Collection) DeleteByID(ctx context.Context, id primitive.ObjectID) error {
-	if _, err := c.Collection.DeleteOne(ctx, Key_ID.Eq(id)); err != nil {
+func (c *Collection) FindOne(ctx context.Context, result interface{}) error {
+	if err := c.Collection.FindOne(ctx, c.filter).Decode(result); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (c *Collection) DeleteMany(ctx context.Context, filter F) error {
-	if _, err := c.Collection.DeleteMany(ctx, filter); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Collection) FindOne(ctx context.Context, filter F, result interface{}) error {
-	if err := c.Collection.FindOne(ctx, filter).Decode(result); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Collection) FindByID(ctx context.Context, id primitive.ObjectID, result interface{}) error {
-	if err := c.Collection.FindOne(ctx, Key_ID.Eq(id)).Decode(result); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Collection) FindOneOrZero(ctx context.Context, filter F, result interface{}) error {
-	if err := c.Collection.FindOne(ctx, filter).Decode(result); err != nil {
+func (c *Collection) FindOneOrZero(ctx context.Context, result interface{}) error {
+	if err := c.Collection.FindOne(ctx, c.filter).Decode(result); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil
 		}
@@ -143,35 +153,8 @@ func (c *Collection) FindOneOrZero(ctx context.Context, filter F, result interfa
 	return nil
 }
 
-func (c *Collection) Find(ctx context.Context, filter F, results interface{}) error {
-	cursor, err := c.Collection.Find(ctx, filter)
-	if err != nil {
-		return err
-	}
-
-	return cursor.All(ctx, results)
-}
-
-func (c *Collection) FindSort(ctx context.Context, filter F, sort S, results interface{}) error {
-	cursor, err := c.Collection.Find(ctx, filter, options.Find().SetSort(sort))
-	if err != nil {
-		return err
-	}
-
-	return cursor.All(ctx, results)
-}
-
-func (c *Collection) FindSortLimit(ctx context.Context, filter F, sort S, limit int64, results interface{}) error {
-	cursor, err := c.Collection.Find(ctx, filter, options.Find().SetSort(sort).SetLimit(limit))
-	if err != nil {
-		return err
-	}
-
-	return cursor.All(ctx, results)
-}
-
-func (c *Collection) FindSortLimitSkip(ctx context.Context, filter F, sort S, limit int64, skip int64, results interface{}) error {
-	cursor, err := c.Collection.Find(ctx, filter, options.Find().SetSort(sort).SetLimit(limit).SetSkip(skip))
+func (c *Collection) Find(ctx context.Context, results interface{}) error {
+	cursor, err := c.Collection.Find(ctx, c.filter)
 	if err != nil {
 		return err
 	}
