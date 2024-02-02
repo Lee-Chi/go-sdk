@@ -64,6 +64,10 @@ func (c *Collection) Sort(sorts ...S) *Collection {
 	return c
 }
 
+const (
+	NoUse int64 = -1
+)
+
 func (c *Collection) Skip(skip int64) *Collection {
 	c.skip = skip
 	return c
@@ -76,6 +80,7 @@ func (c *Collection) Limit(limit int64) *Collection {
 
 func (c *Collection) Where(filters ...F) *Collection {
 	if len(filters) == 0 {
+		c.filter = F{}
 		return c
 	}
 
