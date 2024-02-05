@@ -122,6 +122,14 @@ func (c *Collection) UpdateMany(ctx context.Context, update interface{}) error {
 	return nil
 }
 
+func (c *Collection) Upsert(ctx context.Context, update interface{}) error {
+	if _, err := c.Collection.UpdateOne(ctx, c.filter, bson.M{"$set": update}, options.Update().SetUpsert(true)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (c *Collection) DeleteOne(ctx context.Context) error {
 	if _, err := c.Collection.DeleteOne(ctx, c.filter); err != nil {
 		return err
