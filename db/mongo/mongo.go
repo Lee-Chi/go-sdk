@@ -147,18 +147,15 @@ func (c *Collection) DeleteMany(ctx context.Context) error {
 }
 
 func (c *Collection) FindOne(ctx context.Context, result interface{}) error {
-	opts := options.Find()
+	opts := options.FindOne()
 	if len(c.sort) > 0 {
 		opts.SetSort(c.sort)
-	}
-	if c.limit > 0 {
-		opts.SetLimit(c.limit)
 	}
 	if c.skip > 0 {
 		opts.SetSkip(c.skip)
 	}
 
-	if err := c.Collection.FindOne(ctx, c.filter).Decode(&result); err != nil {
+	if err := c.Collection.FindOne(ctx, c.filter, opts).Decode(&result); err != nil {
 		return err
 	}
 
@@ -166,18 +163,15 @@ func (c *Collection) FindOne(ctx context.Context, result interface{}) error {
 }
 
 func (c *Collection) FindOneOrZero(ctx context.Context, result interface{}) error {
-	opts := options.Find()
+	opts := options.FindOne()
 	if len(c.sort) > 0 {
 		opts.SetSort(c.sort)
-	}
-	if c.limit > 0 {
-		opts.SetLimit(c.limit)
 	}
 	if c.skip > 0 {
 		opts.SetSkip(c.skip)
 	}
 
-	if err := c.Collection.FindOne(ctx, c.filter).Decode(&result); err != nil {
+	if err := c.Collection.FindOne(ctx, c.filter, opts).Decode(&result); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil
 		}
