@@ -155,7 +155,7 @@ func (c *Collection) FindOne(ctx context.Context, result interface{}) error {
 		opts.SetSkip(c.skip)
 	}
 
-	if err := c.Collection.FindOne(ctx, c.filter, opts).Decode(&result); err != nil {
+	if err := c.Collection.FindOne(ctx, c.filter, opts).Decode(result); err != nil {
 		return err
 	}
 
@@ -171,7 +171,7 @@ func (c *Collection) FindOneOrZero(ctx context.Context, result interface{}) erro
 		opts.SetSkip(c.skip)
 	}
 
-	if err := c.Collection.FindOne(ctx, c.filter, opts).Decode(&result); err != nil {
+	if err := c.Collection.FindOne(ctx, c.filter, opts).Decode(result); err != nil {
 		if err == mongo.ErrNoDocuments {
 			return nil
 		}
@@ -199,7 +199,7 @@ func (c *Collection) Find(ctx context.Context, results interface{}) error {
 		return err
 	}
 
-	return cursor.All(ctx, &results)
+	return cursor.All(ctx, results)
 }
 
 func (c *Collection) Count(ctx context.Context) (int64, error) {
@@ -212,7 +212,7 @@ func (c *Collection) Aggregate(ctx context.Context, pipeline interface{}, result
 		return err
 	}
 
-	return cursor.All(ctx, &results)
+	return cursor.All(ctx, results)
 }
 
 type F bson.D
