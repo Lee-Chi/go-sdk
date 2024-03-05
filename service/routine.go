@@ -94,6 +94,7 @@ func (r *Routine) Count(count int64) *Routine {
 	return r
 }
 
+// Repeat duration represents the time interval between each execution
 func (r *Routine) Repeat(duration time.Duration) *Routine {
 	if !isActived(duration) {
 		return r
@@ -103,6 +104,7 @@ func (r *Routine) Repeat(duration time.Duration) *Routine {
 	return r
 }
 
+// RepeatByPassFail passDuration represents the time interval between each successful execution, failDurtaion represents the time interval between each failed execution
 func (r *Routine) RepeatByPassFail(passDuration time.Duration, failDurtaion time.Duration) *Routine {
 	if !isActived(passDuration) && !isActived(failDurtaion) {
 		return r
@@ -112,6 +114,8 @@ func (r *Routine) RepeatByPassFail(passDuration time.Duration, failDurtaion time
 	r.failDuration = failDurtaion
 	return r
 }
+
+// EveryDayAt represents the time of day you want to be executed
 func (r *Routine) EveryDayAt(hour int, min int, location *time.Location) *Routine {
 	if hour > 24 {
 		hour = 24
