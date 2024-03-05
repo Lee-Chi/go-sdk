@@ -2,10 +2,8 @@ package service
 
 import (
 	"context"
-	"os"
-	"os/signal"
+	"fmt"
 	"sort"
-	"syscall"
 	"time"
 )
 
