@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -12,15 +11,15 @@ import (
 )
 
 var (
-	pool map[string]*Routine
+	pool map[string]time.Time
 	mtx  sync.Mutex
 )
 
 func init() {
-	pool = map[string]*Routine{}
+	pool = map[string]time.Time{}
 }
 
-func register(name string, routine *Routine) error {
+func register(name string) error {
 	mtx.Lock()
 	defer mtx.Unlock()
 
@@ -28,16 +27,23 @@ func register(name string, routine *Routine) error {
 		return fmt.Errorf("%s exist", name)
 	}
 
-	pool[name] = routine
+	pool[name] = time.Now()
 
 	return nil
 }
 
-func unregister(name string) {
+func unregister(name string) time.Duration {
 	mtx.Lock()
 	defer mtx.Unlock()
 
-	delete(pool, name)
+	var duration time.Duration
+
+	if found, ok := pool[name]; ok {
+		duration = time.Now().Sub(found)
+		delete(pool, name)
+	}
+
+	return duration
 }
 
 const (
@@ -210,7 +216,7 @@ func (r Routine) nextDuration() time.Duration {
 
 // Go delay represents the time to delay the first execution. if the delay parameter is not given, it means execution according to routine schedule.
 func (r *Routine) Go(delay ...time.Duration) error {
-	if err := register(r.name, r); err != nil {
+	if err := register(r.name); err != nil {
 		return err
 	}
 
@@ -250,19 +256,4 @@ func (r *Routine) Go(delay ...time.Duration) error {
 	}()
 
 	return nil
-}
-
-func Wait(ctx context.Context) {
-	timer := time.NewTimer(60 * time.Millisecond)
-	for {
-		select {
-		case <-timer.C:
-			if len(pool) == 0 {
-				return
-			}
-			timer.Reset(time.Second)
-		case <-ctx.Done():
-			return
-		}
-	}
 }
