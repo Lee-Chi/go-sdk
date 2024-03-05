@@ -1,50 +1,12 @@
 package service
 
 import (
-	"fmt"
 	"os"
 	"os/signal"
 	"sort"
-	"sync"
 	"syscall"
 	"time"
 )
-
-var (
-	pool map[string]time.Time
-	mtx  sync.Mutex
-)
-
-func init() {
-	pool = map[string]time.Time{}
-}
-
-func register(name string) error {
-	mtx.Lock()
-	defer mtx.Unlock()
-
-	if _, ok := pool[name]; ok {
-		return fmt.Errorf("%s exist", name)
-	}
-
-	pool[name] = time.Now()
-
-	return nil
-}
-
-func unregister(name string) time.Duration {
-	mtx.Lock()
-	defer mtx.Unlock()
-
-	var duration time.Duration
-
-	if found, ok := pool[name]; ok {
-		duration = time.Now().Sub(found)
-		delete(pool, name)
-	}
-
-	return duration
-}
 
 const (
 	Stop time.Duration = -1

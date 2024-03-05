@@ -2,11 +2,49 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 )
+
+var (
+	pool map[string]time.Time
+	mtx  sync.Mutex
+)
+
+func init() {
+	pool = map[string]time.Time{}
+}
+
+func register(name string) error {
+	mtx.Lock()
+	defer mtx.Unlock()
+
+	if _, ok := pool[name]; ok {
+		return fmt.Errorf("%s exist", name)
+	}
+
+	pool[name] = time.Now()
+
+	return nil
+}
+
+func unregister(name string) time.Duration {
+	mtx.Lock()
+	defer mtx.Unlock()
+
+	var duration time.Duration
+
+	if found, ok := pool[name]; ok {
+		duration = time.Now().Sub(found)
+		delete(pool, name)
+	}
+
+	return duration
+}
 
 var sig chan os.Signal
 
@@ -15,7 +53,11 @@ func Wait(ctx context.Context) {
 
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
+	fmt.Printf("[SERVICE] %s | service is running ...\n", time.Now().UTC().Format(time.DateTime))
+
 	<-sig
+
+	fmt.Printf("[SERVICE] %s | shut down signal received\n", time.Now().UTC().Format(time.DateTime))
 
 	timer := time.NewTimer(60 * time.Millisecond)
 	for {
@@ -24,6 +66,9 @@ func Wait(ctx context.Context) {
 			if len(pool) == 0 {
 				return
 			}
+
+			fmt.Printf("[SERVICE] %s | waiting for %d active routines\n", time.Now().UTC().Format(time.DateTime), len(pool))
+
 			timer.Reset(time.Second)
 		case <-ctx.Done():
 			return
