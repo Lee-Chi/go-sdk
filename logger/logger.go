@@ -80,6 +80,21 @@ func Sprintf(format string, args ...interface{}) string {
 	return fmt.Sprintf("%s | %s:%d | %s", time.Now().UTC().Format(TimeLayout), file, line, fmt.Sprintf(format, args...))
 }
 
+func Caller() string {
+	_, file, line, ok := runtime.Caller(1)
+
+	if !ok {
+		file = "???"
+		line = 0
+	}
+
+	if ignoreDir != "" {
+		file = file[len(ignoreDir)+1:]
+	}
+
+	return fmt.Sprintf("%s:%d", file, line)
+}
+
 func Error(format string, args ...interface{}) {
 	log(Level_Error, format, args...)
 }
