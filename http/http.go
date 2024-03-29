@@ -24,6 +24,11 @@ func (r *Request) SetHeader(key string, value string) *Request {
 	return r
 }
 
+var (
+	ErrNotFound     = fmt.Errorf("not found")
+	ErrUnauthorized = fmt.Errorf("unauthorized")
+)
+
 func (r Request) Get(url string) ([]byte, error) {
 	client := http.Client{
 		Timeout: 300 * time.Second,
@@ -45,6 +50,12 @@ func (r Request) Get(url string) ([]byte, error) {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
+		if response.StatusCode == http.StatusNotFound {
+			return nil, ErrNotFound
+		} else if response.StatusCode == http.StatusUnauthorized {
+			return nil, ErrUnauthorized
+		}
+
 		return nil, fmt.Errorf("response status code is %d", response.StatusCode)
 	}
 
@@ -83,6 +94,12 @@ func (r Request) PostJson(url string, params interface{}) ([]byte, error) {
 	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
+		if response.StatusCode == http.StatusNotFound {
+			return nil, ErrNotFound
+		} else if response.StatusCode == http.StatusUnauthorized {
+			return nil, ErrUnauthorized
+		}
+
 		responseBody, err := io.ReadAll(response.Body)
 		if err != nil {
 			return nil, fmt.Errorf("response status code is %d, and read response body failed, %v, body: %v", response.StatusCode, err, response.Body)
