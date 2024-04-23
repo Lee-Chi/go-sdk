@@ -89,6 +89,30 @@ func (c *Collection) Where(filters ...F) *Collection {
 	return c
 }
 
+func (c *Collection) WhereAnd(filter F) *Collection {
+	if len(c.filter) == 0 {
+		c.filter = filter
+
+		return c
+	}
+
+	c.filter = F{bson.E{Key: "$and", Value: append([]F{c.filter}, filter)}}
+
+	return c
+}
+
+func (c *Collection) WhereOr(filter F) *Collection {
+	if len(c.filter) == 0 {
+		c.filter = filter
+
+		return c
+	}
+
+	c.filter = F{bson.E{Key: "$or", Value: append([]F{c.filter}, filter)}}
+
+	return c
+}
+
 func (c *Collection) InsertOne(ctx context.Context, document interface{}) (primitive.ObjectID, error) {
 	result, err := c.Collection.InsertOne(ctx, document)
 	if err != nil {
@@ -218,12 +242,28 @@ func (c *Collection) Aggregate(ctx context.Context, pipeline interface{}, result
 type F bson.D
 
 func (f F) And(filter F) F {
+	if len(f) == 0 {
+		return filter
+	}
+
+	if len(filter) == 0 {
+		return f
+	}
+
 	return F{
 		bson.E{Key: "$and", Value: append([]F{f}, filter)},
 	}
 }
 
 func (f F) Or(filter F) F {
+	if len(f) == 0 {
+		return filter
+	}
+
+	if len(filter) == 0 {
+		return f
+	}
+
 	return F{
 		bson.E{Key: "$or", Value: append([]F{f}, filter)},
 	}
