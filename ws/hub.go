@@ -48,6 +48,39 @@ func (h *Hub) RegisterHandler(api string, handler func(client *Client, message s
 	h.handlers[api] = handler
 }
 
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+}
+
+func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (string, error) {
+	// Upgrade this connection to a WebSocket
+	// connection
+	ws, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return "", fmt.Errorf("could not upgrade connection to websocket: %w", err)
+	}
+
+	id := uuid.New().String()
+
+	// Register our new client
+	client := &Client{
+		id:     id,
+		hub:    hub,
+		socket: ws,
+		send:   make(chan []byte, 20),
+	}
+
+	hub.register <- client
+
+	client.Run()
+
+	return id, nil
+}
+
 func (h *Hub) Broadcast(content []byte) {
 	h.broadcast <- Message{Content: content}
 }
