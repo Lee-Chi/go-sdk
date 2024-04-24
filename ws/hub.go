@@ -30,6 +30,8 @@ type Hub struct {
 
 	handlers map[string]func(*Client, string)
 
+	destroyClient func(client *Client)
+
 	running bool
 }
 
@@ -45,6 +47,10 @@ func NewHub(logger func(log string)) *Hub {
 		handlers:   make(map[string]func(*Client, string)),
 		running:    false,
 	}
+}
+
+func (h *Hub) SetDestroyClient(destroy func(client *Client)) {
+	h.destroyClient = destroy
 }
 
 func (h *Hub) RegisterHandler(api string, handler func(client *Client, message string)) {
@@ -75,12 +81,7 @@ func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (string, error) {
 	id := uuid.New().String()
 
 	// Register our new client
-	client := &Client{
-		id:     id,
-		hub:    hub,
-		socket: ws,
-		send:   make(chan []byte, 20),
-	}
+	client := NewClient(id, hub, ws, hub.destroyClient)
 
 	hub.register <- client
 

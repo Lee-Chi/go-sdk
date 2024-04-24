@@ -23,18 +23,20 @@ const (
 )
 
 type Client struct {
-	id     string
-	hub    *Hub
-	socket *websocket.Conn
-	send   chan []byte
+	id      string
+	hub     *Hub
+	socket  *websocket.Conn
+	send    chan []byte
+	destroy func(*Client)
 }
 
-func NewClient(id string, hub *Hub, socket *websocket.Conn) *Client {
+func NewClient(id string, hub *Hub, socket *websocket.Conn, destroy func(*Client)) *Client {
 	return &Client{
-		id:     id,
-		hub:    hub,
-		socket: socket,
-		send:   make(chan []byte, 256),
+		id:      id,
+		hub:     hub,
+		socket:  socket,
+		send:    make(chan []byte, 256),
+		destroy: destroy,
 	}
 }
 
@@ -60,6 +62,7 @@ func (c *Client) read() {
 	defer func() {
 		c.hub.log <- fmt.Sprintf("client %s, leave read", c.id)
 		c.hub.unregister <- c
+		c.destroy(c)
 		c.socket.Close()
 	}()
 
