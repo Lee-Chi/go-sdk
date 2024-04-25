@@ -58,6 +58,15 @@ type Command struct {
 	Message string `json:"message"`
 }
 
+func (c Command) Marshal() []byte {
+	data, _ := json.Marshal(c)
+	return data
+}
+
+func (c *Command) Unmarshal(data []byte) error {
+	return json.Unmarshal(data, c)
+}
+
 func (c *Client) read() {
 	defer func() {
 		c.hub.log <- fmt.Sprintf("client %s, leave read", c.id)
@@ -78,7 +87,7 @@ func (c *Client) read() {
 		}
 
 		var command Command
-		if err := json.Unmarshal(message, &command); err != nil {
+		if err := command.Unmarshal(message); err != nil {
 			c.hub.log <- fmt.Sprintf("client %s receive(%s), failed to unmarshal message: %s", c.id, string(message), err)
 			continue
 		}
