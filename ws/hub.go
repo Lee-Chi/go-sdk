@@ -90,12 +90,12 @@ func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (string, error) {
 	return id, nil
 }
 
-func (h *Hub) Broadcast(content []byte) {
-	h.broadcast <- Message{Content: content}
+func (h *Hub) Broadcast(command Command) {
+	h.broadcast <- Message{Content: command.Marshal()}
 }
 
-func (h *Hub) Relay(target string, content []byte) {
-	h.relay <- Message{Target: target, Content: content}
+func (h *Hub) Relay(target string, command Command) {
+	h.relay <- Message{Target: target, Content: command.Marshal()}
 }
 
 func (h *Hub) Run(shutdown chan bool) {
