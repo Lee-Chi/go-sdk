@@ -29,8 +29,17 @@ func (c Connection) ID() ID {
 	return c.id
 }
 
-func (c Connection) Hub() *Hub {
-	return c.hub
+func (c Connection) Send(to ID, cmd Command) {
+	if to == c.ID() {
+		c.send <- cmd.Marshal()
+		return
+	}
+
+	c.hub.relay <- Packet{To: to, Message: cmd.Marshal()}
+}
+
+func (c Connection) Broadcast(cmd Command) {
+	c.hub.broadcast <- Packet{Message: cmd.Marshal()}
 }
 
 func (c *Connection) daemon() {
