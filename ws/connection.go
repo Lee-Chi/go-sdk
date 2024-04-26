@@ -33,6 +33,10 @@ func (c *Connection) ID() ID {
 	return c.id
 }
 
+func (c *Connection) Log(log string) {
+	c.hub.log <- fmt.Sprintf("connection %s, %s", c.id, log)
+}
+
 func (c *Connection) Send(to ID, cmd Command) {
 	if to == c.ID() {
 		c.send <- cmd.Marshal()
