@@ -37,6 +37,10 @@ func (id ID) String() string {
 	return string(id)
 }
 
+func IDFromString(id string) ID {
+	return ID(id)
+}
+
 func NewID() ID {
 	return ID(uuid.New().String())
 }
