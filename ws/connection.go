@@ -2,34 +2,38 @@ package ws
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 type Connection struct {
-	id      ID
-	hub     *Hub
-	socket  *websocket.Conn
-	send    chan []byte
-	destroy Handler
+	id     ID
+	hub    *Hub
+	socket *websocket.Conn
+	send   chan []byte
+	closes map[string]Handler
+	mtx    sync.Mutex
 }
 
-func NewConnection(id ID, hub *Hub, socket *websocket.Conn, destroy Handler) *Connection {
+func NewConnection(id ID, hub *Hub, socket *websocket.Conn) *Connection {
 	return &Connection{
-		id:      id,
-		hub:     hub,
-		socket:  socket,
-		send:    make(chan []byte, 32),
-		destroy: destroy,
+		id:     id,
+		hub:    hub,
+		socket: socket,
+		send:   make(chan []byte, 32),
+
+		closes: make(map[string]Handler),
+		mtx:    sync.Mutex{},
 	}
 }
 
-func (c Connection) ID() ID {
+func (c *Connection) ID() ID {
 	return c.id
 }
 
-func (c Connection) Send(to ID, cmd Command) {
+func (c *Connection) Send(to ID, cmd Command) {
 	if to == c.ID() {
 		c.send <- cmd.Marshal()
 		return
@@ -38,8 +42,20 @@ func (c Connection) Send(to ID, cmd Command) {
 	c.hub.relay <- Packet{To: to, Message: cmd.Marshal()}
 }
 
-func (c Connection) Broadcast(cmd Command) {
+func (c *Connection) Broadcast(cmd Command) {
 	c.hub.broadcast <- Packet{Message: cmd.Marshal()}
+}
+
+func (c *Connection) RegisterCloseHandler(name string, handler Handler) {
+	c.mtx.Lock()
+	c.closes[name] = handler
+	c.mtx.Unlock()
+}
+
+func (c *Connection) UnregisterCloseHandler(name string) {
+	c.mtx.Lock()
+	delete(c.closes, name)
+	c.mtx.Unlock()
 }
 
 func (c *Connection) daemon() {
@@ -51,9 +67,13 @@ func (c *Connection) read() {
 	defer func() {
 		c.hub.log <- fmt.Sprintf("connection %s, leave read", c.id)
 		c.hub.unregister <- c
-		if c.destroy != nil {
-			c.destroy(c, nil)
+
+		c.mtx.Lock()
+		for _, handler := range c.closes {
+			handler(c, nil)
 		}
+		c.mtx.Unlock()
+
 		c.socket.Close()
 	}()
 

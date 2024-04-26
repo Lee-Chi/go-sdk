@@ -22,28 +22,21 @@ type Hub struct {
 
 	handlers map[string]Handler
 
-	handlerDestroyConnection Handler
-
 	running bool
 }
 
 func NewHub(logger func(log string)) *Hub {
 	return &Hub{
-		broadcast:                make(chan Packet, 256),
-		relay:                    make(chan Packet, 256),
-		register:                 make(chan *Connection),
-		unregister:               make(chan *Connection),
-		connections:              make(map[ID]*Connection),
-		log:                      make(chan string, 256),
-		logger:                   logger,
-		handlers:                 make(map[string]Handler),
-		handlerDestroyConnection: nil,
-		running:                  false,
+		broadcast:   make(chan Packet, 256),
+		relay:       make(chan Packet, 256),
+		register:    make(chan *Connection),
+		unregister:  make(chan *Connection),
+		connections: make(map[ID]*Connection),
+		log:         make(chan string, 256),
+		logger:      logger,
+		handlers:    make(map[string]Handler),
+		running:     false,
 	}
-}
-
-func (h *Hub) SetDestroyConnection(handler Handler) {
-	h.handlerDestroyConnection = handler
 }
 
 func (h *Hub) RegisterHandler(name string, handler Handler) {
@@ -66,7 +59,7 @@ func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (ID, error) {
 	id := NewID()
 
 	// Register our new connection
-	connection := NewConnection(id, hub, ws, hub.handlerDestroyConnection)
+	connection := NewConnection(id, hub, ws)
 
 	hub.register <- connection
 
