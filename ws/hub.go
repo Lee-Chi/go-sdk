@@ -5,69 +5,56 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 )
 
-type Message struct {
-	Target  string
-	Content []byte
-}
-
 type Hub struct {
-	clients map[string]*Client
+	connections map[string]*Connection
 
-	broadcast chan Message
+	broadcast chan Packet
 
-	relay chan Message
+	relay chan Packet
 
-	register chan *Client
+	register chan *Connection
 
-	unregister chan *Client
+	unregister chan *Connection
 
 	log chan string
 
 	logger func(log string)
 
-	handlers map[string]func(*Client, string)
+	handlers map[string]Handler
 
-	destroyClient func(client *Client)
+	handlerDestroyConnection Handler
 
 	running bool
 }
 
 func NewHub(logger func(log string)) *Hub {
 	return &Hub{
-		broadcast:  make(chan Message, 256),
-		relay:      make(chan Message, 256),
-		register:   make(chan *Client),
-		unregister: make(chan *Client),
-		clients:    make(map[string]*Client),
-		log:        make(chan string, 256),
-		logger:     logger,
-		handlers:   make(map[string]func(*Client, string)),
-		running:    false,
+		broadcast:                make(chan Packet, 256),
+		relay:                    make(chan Packet, 256),
+		register:                 make(chan *Connection),
+		unregister:               make(chan *Connection),
+		connections:              make(map[string]*Connection),
+		log:                      make(chan string, 256),
+		logger:                   logger,
+		handlers:                 make(map[string]Handler),
+		handlerDestroyConnection: nil,
+		running:                  false,
 	}
 }
 
-func (h *Hub) SetDestroyClient(destroy func(client *Client)) {
-	h.destroyClient = destroy
+func (h *Hub) SetDestroyConnection(handler Handler) {
+	h.handlerDestroyConnection = handler
 }
 
-func (h *Hub) RegisterHandler(api string, handler func(client *Client, message string)) {
+func (h *Hub) RegisterHandler(name string, handler Handler) {
 	if h.running {
 		h.log <- "hub is running, cannot relay message"
 		return
 	}
 
-	h.handlers[api] = handler
-}
-
-var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	h.handlers[name] = handler
 }
 
 func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (string, error) {
@@ -80,22 +67,22 @@ func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (string, error) {
 
 	id := uuid.New().String()
 
-	// Register our new client
-	client := NewClient(id, hub, ws, hub.destroyClient)
+	// Register our new connection
+	connection := NewConnection(id, hub, ws, hub.handlerDestroyConnection)
 
-	hub.register <- client
+	hub.register <- connection
 
-	client.Run()
+	connection.daemon()
 
 	return id, nil
 }
 
-func (h *Hub) Broadcast(command Command) {
-	h.broadcast <- Message{Content: command.Marshal()}
+func (h *Hub) Broadcast(cmdName string, cmdBody []byte) {
+	h.broadcast <- Packet{Message: NewCommand(cmdName, cmdBody).Marshal()}
 }
 
-func (h *Hub) Relay(target string, command Command) {
-	h.relay <- Message{Target: target, Content: command.Marshal()}
+func (h *Hub) Relay(to string, cmdName string, cmdBody []byte) {
+	h.relay <- Packet{To: to, Message: NewCommand(cmdName, cmdBody).Marshal()}
 }
 
 func (h *Hub) Run(shutdown chan bool) {
@@ -112,29 +99,29 @@ func (h *Hub) Run(shutdown chan bool) {
 		select {
 		case <-shutdown:
 			return
-		case client := <-h.register:
-			h.clients[client.id] = client
-		case client := <-h.unregister:
-			if _, ok := h.clients[client.id]; ok {
-				delete(h.clients, client.id)
-				close(client.send)
+		case connection := <-h.register:
+			h.connections[connection.id] = connection
+		case connection := <-h.unregister:
+			if _, ok := h.connections[connection.id]; ok {
+				delete(h.connections, connection.id)
+				close(connection.send)
 			}
-		case message := <-h.broadcast:
-			for _, client := range h.clients {
+		case packet := <-h.broadcast:
+			for _, connection := range h.connections {
 				select {
-				case client.send <- message.Content:
+				case connection.send <- packet.Message:
 				default:
-					close(client.send)
-					delete(h.clients, client.id)
+					close(connection.send)
+					delete(h.connections, connection.id)
 				}
 			}
-		case message := <-h.relay:
-			if client, ok := h.clients[message.Target]; ok {
+		case packet := <-h.relay:
+			if connection, ok := h.connections[packet.To]; ok {
 				select {
-				case client.send <- message.Content:
+				case connection.send <- packet.Message:
 				default:
-					close(client.send)
-					delete(h.clients, client.id)
+					close(connection.send)
+					delete(h.connections, connection.id)
 				}
 			}
 		}
