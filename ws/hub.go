@@ -3,12 +3,10 @@ package ws
 import (
 	"fmt"
 	"net/http"
-
-	"github.com/google/uuid"
 )
 
 type Hub struct {
-	connections map[string]*Connection
+	connections map[ID]*Connection
 
 	broadcast chan Packet
 
@@ -35,7 +33,7 @@ func NewHub(logger func(log string)) *Hub {
 		relay:                    make(chan Packet, 256),
 		register:                 make(chan *Connection),
 		unregister:               make(chan *Connection),
-		connections:              make(map[string]*Connection),
+		connections:              make(map[ID]*Connection),
 		log:                      make(chan string, 256),
 		logger:                   logger,
 		handlers:                 make(map[string]Handler),
@@ -57,7 +55,7 @@ func (h *Hub) RegisterHandler(name string, handler Handler) {
 	h.handlers[name] = handler
 }
 
-func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (string, error) {
+func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (ID, error) {
 	// Upgrade this connection to a WebSocket
 	// connection
 	ws, err := upgrader.Upgrade(w, r, nil)
@@ -65,7 +63,7 @@ func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (string, error) {
 		return "", fmt.Errorf("could not upgrade connection to websocket: %w", err)
 	}
 
-	id := uuid.New().String()
+	id := NewID()
 
 	// Register our new connection
 	connection := NewConnection(id, hub, ws, hub.handlerDestroyConnection)
@@ -77,12 +75,12 @@ func (hub *Hub) Accept(w http.ResponseWriter, r *http.Request) (string, error) {
 	return id, nil
 }
 
-func (h *Hub) Broadcast(cmdName string, cmdBody []byte) {
-	h.broadcast <- Packet{Message: NewCommand(cmdName, cmdBody).Marshal()}
+func (h *Hub) Broadcast(cmd Command) {
+	h.broadcast <- Packet{Message: cmd.Marshal()}
 }
 
-func (h *Hub) Relay(to string, cmdName string, cmdBody []byte) {
-	h.relay <- Packet{To: to, Message: NewCommand(cmdName, cmdBody).Marshal()}
+func (h *Hub) Relay(to ID, cmd Command) {
+	h.relay <- Packet{To: to, Message: cmd.Marshal()}
 }
 
 func (h *Hub) Run(shutdown chan bool) {

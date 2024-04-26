@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -30,6 +31,16 @@ var upgrader = websocket.Upgrader{
 	WriteBufferSize: 1024,
 }
 
+type ID string
+
+func (id ID) String() string {
+	return string(id)
+}
+
+func NewID() ID {
+	return ID(uuid.New().String())
+}
+
 type Command struct {
 	Name string `json:"name"`
 	Body []byte `json:"body"`
@@ -52,7 +63,7 @@ func (c *Command) Unmarshal(data []byte) error {
 }
 
 type Packet struct {
-	To      string
+	To      ID
 	Message []byte
 }
 

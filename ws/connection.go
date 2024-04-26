@@ -8,14 +8,14 @@ import (
 )
 
 type Connection struct {
-	id      string
+	id      ID
 	hub     *Hub
 	socket  *websocket.Conn
 	send    chan []byte
 	destroy Handler
 }
 
-func NewConnection(id string, hub *Hub, socket *websocket.Conn, destroy Handler) *Connection {
+func NewConnection(id ID, hub *Hub, socket *websocket.Conn, destroy Handler) *Connection {
 	return &Connection{
 		id:      id,
 		hub:     hub,
@@ -25,7 +25,7 @@ func NewConnection(id string, hub *Hub, socket *websocket.Conn, destroy Handler)
 	}
 }
 
-func (c Connection) ID() string {
+func (c Connection) ID() ID {
 	return c.id
 }
 
