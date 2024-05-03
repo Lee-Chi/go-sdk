@@ -92,19 +92,19 @@ func (c *Connection) read() {
 			break
 		}
 
-		var command Command
-		if err := command.Unmarshal(message); err != nil {
+		var cmd Command
+		if err := cmd.Unmarshal(message); err != nil {
 			c.hub.log <- fmt.Sprintf("connection %s receive(%s), failed to unmarshal message: %s", c.id, string(message), err)
 			continue
 		}
 
-		handler, ok := c.hub.handlers[command.Name]
+		handler, ok := c.hub.handlers[cmd.Name]
 		if !ok {
-			c.hub.log <- fmt.Sprintf("connection %s recieve(%s), unknown API: %s", c.id, string(message), command.Name)
+			c.hub.log <- fmt.Sprintf("connection %s recieve(%s), unknown API: %s", c.id, string(message), cmd.Name)
 			continue
 		}
 
-		go handler(c, command.Body)
+		go handler(c, &cmd)
 	}
 }
 

@@ -47,13 +47,17 @@ func NewID() ID {
 
 type Command struct {
 	Name string `json:"name"`
-	Body []byte `json:"body"`
+	Body string `json:"body"`
 }
 
-func NewCommand(name string, body []byte) Command {
-	return Command{
+func (c Command) BindJson(obj any) error {
+	return json.Unmarshal([]byte(c.Body), obj)
+}
+
+func NewCommand(name string, body []byte) *Command {
+	return &Command{
 		Name: name,
-		Body: body,
+		Body: string(body),
 	}
 }
 
@@ -71,4 +75,4 @@ type Packet struct {
 	Message []byte
 }
 
-type Handler func(*Connection, []byte)
+type Handler func(*Connection, *Command)
