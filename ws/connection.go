@@ -126,21 +126,8 @@ func (c *Connection) write() {
 				return
 			}
 
-			w, err := c.socket.NextWriter(websocket.TextMessage)
-			if err != nil {
-				c.hub.log <- fmt.Sprintf("connection %s, failed to get next writer: %s", c.id, err)
-				return
-			}
-			w.Write(message)
-
-			// Add queued chat messages to the current websocket message.
-			n := len(c.send)
-			for i := 0; i < n; i++ {
-				w.Write(<-c.send)
-			}
-
-			if err := w.Close(); err != nil {
-				c.hub.log <- fmt.Sprintf("connection %s, failed to close writer: %s", c.id, err)
+			if err := c.socket.WriteMessage(websocket.TextMessage, message); err != nil {
+				c.hub.log <- fmt.Sprintf("connection %s, failed to write message: %s", c.id, err)
 				return
 			}
 		case <-ticker.C:
