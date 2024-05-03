@@ -37,7 +37,7 @@ func (c *Connection) Log(log string) {
 	c.hub.log <- fmt.Sprintf("connection %s, %s", c.id, log)
 }
 
-func (c *Connection) Send(to ID, cmd Command) {
+func (c *Connection) Send(to ID, cmd *Command) {
 	if to == c.ID() {
 		c.send <- cmd.Marshal()
 		return
@@ -46,7 +46,7 @@ func (c *Connection) Send(to ID, cmd Command) {
 	c.hub.relay <- Packet{To: to, Message: cmd.Marshal()}
 }
 
-func (c *Connection) Broadcast(cmd Command) {
+func (c *Connection) Broadcast(cmd *Command) {
 	c.hub.broadcast <- Packet{Message: cmd.Marshal()}
 }
 
