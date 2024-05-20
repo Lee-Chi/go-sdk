@@ -89,6 +89,10 @@ func (h *Hub) Run(shutdown chan bool) {
 	for {
 		select {
 		case <-shutdown:
+			close(h.register)
+			for _, connection := range h.connections {
+				connection.socket.Close()
+			}
 			return
 		case connection := <-h.register:
 			h.connections[connection.id] = connection
