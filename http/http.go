@@ -117,7 +117,21 @@ func (r Request) PostJson(url string, params interface{}) ([]byte, error) {
 	return responseBody, nil
 }
 
-func (r Request) PostMultipart(url string, files map[string]*multipart.File, texts map[string]string) ([]byte, error) {
+func copyFile(part io.Writer, header *multipart.FileHeader) error {
+	file, err := header.Open()
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	if _, err := io.Copy(part, file); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r Request) PostMultipart(url string, files map[string]*multipart.FileHeader, texts map[string]string) ([]byte, error) {
 	client := http.Client{
 		Timeout: 300 * time.Second,
 	}
@@ -129,11 +143,13 @@ func (r Request) PostMultipart(url string, files map[string]*multipart.File, tex
 	}
 
 	for k, v := range files {
-		fileWriter, err := writer.CreateFormField(k)
+		writer.CreateFormFile(k, v.Filename)
+		part, err := writer.CreateFormFile(k, v.Filename)
 		if err != nil {
 			return nil, fmt.Errorf("create form field failed, %v", err)
 		}
-		if _, err := io.Copy(fileWriter, *v); err != nil {
+
+		if err := copyFile(part, v); err != nil {
 			return nil, fmt.Errorf("copy file failed, %v", err)
 		}
 	}
