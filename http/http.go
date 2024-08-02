@@ -154,6 +154,8 @@ func (r Request) PostMultipart(url string, files map[string]*multipart.FileHeade
 		}
 	}
 
+	contentType := writer.FormDataContentType()
+
 	if err := writer.Close(); err != nil {
 		return nil, fmt.Errorf("close writer failed, %v", err)
 	}
@@ -166,7 +168,7 @@ func (r Request) PostMultipart(url string, files map[string]*multipart.FileHeade
 	for k, v := range r.header {
 		request.Header.Set(k, v)
 	}
-	request.Header.Set("Content-Type", writer.FormDataContentType())
+	request.Header.Set("Content-Type", contentType)
 
 	response, err := client.Do(request)
 	if err != nil {
