@@ -7,6 +7,8 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"strings"
 	"time"
 )
 
@@ -131,6 +133,12 @@ func copyFile(part io.Writer, header *multipart.FileHeader) error {
 	return nil
 }
 
+var quoteEscaper = strings.NewReplacer("\\", "\\\\", `"`, "\\\"")
+
+func escapeQuotes(s string) string {
+	return quoteEscaper.Replace(s)
+}
+
 func (r Request) PostMultipart(url string, files map[string]*multipart.FileHeader, texts map[string]string) ([]byte, error) {
 	client := http.Client{
 		Timeout: 300 * time.Second,
@@ -143,8 +151,12 @@ func (r Request) PostMultipart(url string, files map[string]*multipart.FileHeade
 	}
 
 	for k, v := range files {
-		writer.CreateFormFile(k, v.Filename)
-		part, err := writer.CreateFormFile(k, v.Filename)
+		h := make(textproto.MIMEHeader)
+		h.Set("Content-Disposition",
+			fmt.Sprintf(`form-data; name="%s"; filename="%s"`,
+				escapeQuotes(k), escapeQuotes(v.Filename)))
+		h.Set("Content-Type", v.Header.Get("Content-Type"))
+		part, err := writer.CreatePart(v.Header)
 		if err != nil {
 			return nil, fmt.Errorf("create form field failed, %v", err)
 		}
