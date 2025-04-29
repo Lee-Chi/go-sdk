@@ -18,6 +18,7 @@ type Collection struct {
 
 	filter F
 	sort   S
+	proj   Proj
 	skip   int64
 	limit  int64
 }
@@ -47,6 +48,7 @@ func (db *Database) Collection(name string) *Collection {
 
 		filter: F{},
 		sort:   S{},
+		proj:   Proj{},
 		skip:   -1,
 		limit:  -1,
 	}
@@ -75,6 +77,18 @@ func (c *Collection) Skip(skip int64) *Collection {
 
 func (c *Collection) Limit(limit int64) *Collection {
 	c.limit = limit
+	return c
+}
+
+func (c *Collection) Projection(proj ...Proj) *Collection {
+	if len(proj) == 0 {
+		return c
+	}
+
+	for _, p := range proj {
+		c.proj = append(c.proj, p...)
+	}
+
 	return c
 }
 
@@ -113,7 +127,7 @@ func (c *Collection) WhereOr(filter F) *Collection {
 	return c
 }
 
-func (c *Collection) InsertOne(ctx context.Context, document interface{}) (primitive.ObjectID, error) {
+func (c *Collection) InsertOne(ctx context.Context, document any) (primitive.ObjectID, error) {
 	result, err := c.Collection.InsertOne(ctx, document)
 	if err != nil {
 		return primitive.NilObjectID, err
@@ -122,7 +136,7 @@ func (c *Collection) InsertOne(ctx context.Context, document interface{}) (primi
 	return result.InsertedID.(primitive.ObjectID), err
 }
 
-func (c *Collection) InsertMany(ctx context.Context, documents []interface{}) error {
+func (c *Collection) InsertMany(ctx context.Context, documents []any) error {
 	if _, err := c.Collection.InsertMany(ctx, documents); err != nil {
 		return err
 	}
@@ -130,7 +144,7 @@ func (c *Collection) InsertMany(ctx context.Context, documents []interface{}) er
 	return nil
 }
 
-func (c *Collection) UpdateOne(ctx context.Context, update interface{}) error {
+func (c *Collection) UpdateOne(ctx context.Context, update any) error {
 	if _, err := c.Collection.UpdateOne(ctx, c.filter, bson.M{"$set": update}); err != nil {
 		return err
 	}
@@ -138,7 +152,7 @@ func (c *Collection) UpdateOne(ctx context.Context, update interface{}) error {
 	return nil
 }
 
-func (c *Collection) UpdateMany(ctx context.Context, update interface{}) error {
+func (c *Collection) UpdateMany(ctx context.Context, update any) error {
 	if _, err := c.Collection.UpdateMany(ctx, c.filter, bson.M{"$set": update}); err != nil {
 		return err
 	}
@@ -146,7 +160,7 @@ func (c *Collection) UpdateMany(ctx context.Context, update interface{}) error {
 	return nil
 }
 
-func (c *Collection) Upsert(ctx context.Context, update interface{}) error {
+func (c *Collection) Upsert(ctx context.Context, update any) error {
 	if _, err := c.Collection.UpdateOne(ctx, c.filter, bson.M{"$set": update}, options.Update().SetUpsert(true)); err != nil {
 		return err
 	}
@@ -170,13 +184,16 @@ func (c *Collection) DeleteMany(ctx context.Context) error {
 	return nil
 }
 
-func (c *Collection) FindOne(ctx context.Context, result interface{}) error {
+func (c *Collection) FindOne(ctx context.Context, result any) error {
 	opts := options.FindOne()
 	if len(c.sort) > 0 {
 		opts.SetSort(c.sort)
 	}
 	if c.skip > 0 {
 		opts.SetSkip(c.skip)
+	}
+	if len(c.proj) > 0 {
+		opts.SetProjection(c.proj)
 	}
 
 	if err := c.Collection.FindOne(ctx, c.filter, opts).Decode(result); err != nil {
@@ -186,13 +203,16 @@ func (c *Collection) FindOne(ctx context.Context, result interface{}) error {
 	return nil
 }
 
-func (c *Collection) FindOneOrZero(ctx context.Context, result interface{}) error {
+func (c *Collection) FindOneOrZero(ctx context.Context, result any) error {
 	opts := options.FindOne()
 	if len(c.sort) > 0 {
 		opts.SetSort(c.sort)
 	}
 	if c.skip > 0 {
 		opts.SetSkip(c.skip)
+	}
+	if len(c.proj) > 0 {
+		opts.SetProjection(c.proj)
 	}
 
 	if err := c.Collection.FindOne(ctx, c.filter, opts).Decode(result); err != nil {
@@ -206,7 +226,7 @@ func (c *Collection) FindOneOrZero(ctx context.Context, result interface{}) erro
 	return nil
 }
 
-func (c *Collection) Find(ctx context.Context, results interface{}) error {
+func (c *Collection) Find(ctx context.Context, results any) error {
 	opts := options.Find()
 	if len(c.sort) > 0 {
 		opts.SetSort(c.sort)
@@ -216,6 +236,9 @@ func (c *Collection) Find(ctx context.Context, results interface{}) error {
 	}
 	if c.skip > 0 {
 		opts.SetSkip(c.skip)
+	}
+	if len(c.proj) > 0 {
+		opts.SetProjection(c.proj)
 	}
 
 	cursor, err := c.Collection.Find(ctx, c.filter, opts)
@@ -230,7 +253,7 @@ func (c *Collection) Count(ctx context.Context) (int64, error) {
 	return c.Collection.CountDocuments(ctx, c.filter)
 }
 
-func (c *Collection) Aggregate(ctx context.Context, pipeline interface{}, results interface{}) error {
+func (c *Collection) Aggregate(ctx context.Context, pipeline any, results any) error {
 	cursor, err := c.Collection.Aggregate(ctx, pipeline)
 	if err != nil {
 		return err
@@ -271,7 +294,7 @@ func (f F) Or(filter F) F {
 
 type U bson.M
 
-func (u U) Set(key K, value interface{}) U {
+func (u U) Set(key K, value any) U {
 	u[string(key)] = value
 	return u
 }
@@ -291,49 +314,49 @@ func Key(k string) K {
 	return K(k)
 }
 
-func (k K) Eq(value interface{}) F {
+func (k K) Eq(value any) F {
 	return F{
 		bson.E{Key: string(k), Value: value},
 	}
 }
 
-func (k K) Ne(value interface{}) F {
+func (k K) Ne(value any) F {
 	return F{
 		bson.E{Key: string(k), Value: F{{Key: "$ne", Value: value}}},
 	}
 }
 
-func (k K) Gt(value interface{}) F {
+func (k K) Gt(value any) F {
 	return F{
 		bson.E{Key: string(k), Value: F{{Key: "$gt", Value: value}}},
 	}
 }
 
-func (k K) Gte(value interface{}) F {
+func (k K) Gte(value any) F {
 	return F{
 		bson.E{Key: string(k), Value: F{{Key: "$gte", Value: value}}},
 	}
 }
 
-func (k K) Lt(value interface{}) F {
+func (k K) Lt(value any) F {
 	return F{
 		bson.E{Key: string(k), Value: F{{Key: "$lt", Value: value}}},
 	}
 }
 
-func (k K) Lte(value interface{}) F {
+func (k K) Lte(value any) F {
 	return F{
 		bson.E{Key: string(k), Value: F{{Key: "$lte", Value: value}}},
 	}
 }
 
-func (k K) In(value interface{}) F {
+func (k K) In(value any) F {
 	return F{
 		bson.E{Key: string(k), Value: F{{Key: "$in", Value: value}}},
 	}
 }
 
-func (k K) Nin(value interface{}) F {
+func (k K) Nin(value any) F {
 	return F{
 		bson.E{Key: string(k), Value: F{{Key: "$nin", Value: value}}},
 	}
@@ -369,7 +392,13 @@ func (k K) Proj() Proj {
 	}
 }
 
-func (k K) Set(v interface{}) U {
+func (k K) NotProj() Proj {
+	return Proj{
+		bson.E{Key: string(k), Value: 0},
+	}
+}
+
+func (k K) Set(v any) U {
 	return U{
 		string(k): v,
 	}
