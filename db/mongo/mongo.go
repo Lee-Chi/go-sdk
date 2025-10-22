@@ -403,3 +403,7 @@ func (k K) Set(v any) U {
 		string(k): v,
 	}
 }
+
+func (k K) Field() string {
+	return string(k)
+}
